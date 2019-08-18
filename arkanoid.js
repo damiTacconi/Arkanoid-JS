@@ -5,6 +5,31 @@ const BulletMovement = {
   DOWN: 2
 };
 
+const DIFFICULT_GAME = {
+  EASY: {
+    BAR_WIDTH: 75,
+    MAX_BRICKS_LIVES: 2,
+    PLAYER_LIVES: 5
+  },
+  NORMAL: {
+    BAR_WIDTH: 55,
+    MAX_BRICKS_LIVES: 3,
+    PLAYER_LIVES: 3
+  },
+  HARD: {
+    BAR_WIDTH: 45,
+    MAX_BRICKS_LIVES: 5,
+    PLAYER_LIVES: 3
+  },
+  VERY_HARD: {
+    BAR_WIDTH: 40,
+    MAX_BRICKS_LIVES: 5,
+    PLAYER_LIVES: 1
+  }
+};
+
+var DIFFICULT_SELECTED = DIFFICULT_GAME.EASY;
+
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 const BAR_LIVE_LIMIT = 40;
@@ -36,9 +61,9 @@ function rectCircleColliding(circle, block) {
 
 /* BARRA SUPERIOR QUE MUESTRA LAS VIDAS DEL JUGADOR */
 function showLives() {
-  ctx.clearRect(0, 0, BAR_LIVE_LIMIT, canvas.height);
+  ctx.clearRect(100, 0, BAR_LIVE_LIMIT, 40);
   ctx.fillStyle = "#090909";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(100, 0, canvas.width, 40);
 
   for (let i = 1; i <= game.bar.lives; i++) {
     var img_heart = new Image();
@@ -53,7 +78,7 @@ function showLives() {
 /*REINICIO DEL JUEGO*/
 function reset() {
   game = new Game();
-  showLives();
+  game.start();
 }
 
 /* ACTUALIZACION DE PUNTOS */
@@ -81,12 +106,15 @@ function update() {
 
 /* JUEGO */
 function Game() {
+  this.gaming = false;
   this.bar = new Bar(canvas.width / 2, canvas.height - 20);
   this.rowsPositionY = {
     one: 110,
     two: 140,
     three: 170,
-    four: 200
+    four: 200,
+    five: 260,
+    six: 320
   };
   this.powerUps = [];
   this.points = 0;
@@ -101,9 +129,10 @@ function Game() {
       this.bricks.push(new Brick(column, this.rowsPositionY.two));
       this.bricks.push(new Brick(column, this.rowsPositionY.three));
       this.bricks.push(new Brick(column, this.rowsPositionY.four));
+      this.bricks.push(new Brick(column, this.rowsPositionY.five, 4));
+      this.bricks.push(new Brick(column, this.rowsPositionY.six, 3));
     }
   };
-  this.generateBricks(10);
 
   this.drawPowerUps = function() {
     for (let i = 0; i < this.powerUps.length; i++) {
@@ -114,8 +143,10 @@ function Game() {
         let type = this.powerUps[i].type;
         this.powerUps = this.powerUps.filter(b => b.x != this.powerUps[i].x);
         if (type === 1) {
-          this.bar.lives += 1;
-          showLives();
+          if (this.bar.lives < 15) {
+            this.bar.lives += 1;
+            showLives();
+          }
         } else this.bar.width += 8;
       }
     }
@@ -128,10 +159,16 @@ function Game() {
     }
     if (this.bar.bullet.lost) {
       this.bar.lives -= 1;
+      /* reseteo a los valores iniciales*/
       this.bar.bullet.isMoving = false;
       this.bar.bullet.lost = false;
+      this.bar.bullet.speed = 4.5;
+      this.bar.width = DIFFICULT_SELECTED.BAR_WIDTH;
       showLives();
-      if (this.bar.lives === 0) this.gameover = true;
+      if (this.bar.lives === 0) {
+        alert("PERDISTE!: " + this.points + " puntos.");
+        this.gameover = true;
+      }
     } else {
       this.bar.draw();
       for (let i = 0; i < this.bricks.length; i++) {
@@ -146,7 +183,12 @@ function Game() {
           if (b.lives === 0) {
             var random = Math.floor(Math.random() * 10 + 1);
             if (random > 7) {
-              let type = random === 10 ? 1 : 0;
+              var type = 0;
+              if (random === 10) {
+                this.points += 8;
+                type = 1;
+              } else this.points += 4;
+
               this.powerUps.push(new PowerUp(b.x, b.y, type));
             }
             this.bricks.splice(i, 1);
@@ -165,15 +207,30 @@ function Game() {
   this.throwBullet = function() {
     this.bar.throwBullet();
   };
+
+  this.start = function() {
+    this.gaming = true;
+    this.generateBricks(10);
+    this.bar.start();
+    for (let i = 0; i < this.bricks.length; i++) this.bricks[i].start();
+    showLives();
+  };
 }
 
 /* LADRILLO */
-function Brick(x, y) {
+function Brick(x, y, lives = 0) {
   this.x = x;
   this.y = y;
-  this.lives = Math.floor(Math.random() * 5 + 1);
+  this.lives = 0;
   this.width = 55;
   this.height = 10;
+
+  this.start = function() {
+    this.lives =
+      lives === 0
+        ? Math.floor(Math.random() * DIFFICULT_SELECTED.MAX_BRICKS_LIVES + 1)
+        : lives;
+  };
   this.draw = function() {
     switch (this.lives) {
       case 5:
@@ -273,10 +330,15 @@ function Bullet(x, y) {
 function Bar(x, y) {
   this.x = x;
   this.y = y;
-  this.width = 60;
+  this.width = 0;
   this.height = 10;
-  this.lives = 5;
+  this.lives = 0;
   this.bullet = new Bullet(this.x + 25, this.y - 5);
+
+  this.start = function() {
+    this.width = DIFFICULT_SELECTED.BAR_WIDTH;
+    this.lives = DIFFICULT_SELECTED.PLAYER_LIVES;
+  };
 
   this.draw = function() {
     ctx.fillStyle = "#FF0000";
@@ -332,17 +394,57 @@ function PowerUp(x, y, type = 0) {
   };
 }
 
-/* EVENTOS */
-canvas.onmousemove = e => {
-  game.moveBar(e.pageX);
-};
+function startGame() {
+  game.start();
+  setInterval(() => {
+    update();
+  }, 20);
 
-canvas.addEventListener("click", e => {
-  game.throwBullet();
+  /* EVENTOS */
+  canvas.onmousemove = e => {
+    game.moveBar(e.pageX);
+  };
+
+  canvas.addEventListener("click", e => {
+    game.throwBullet();
+  });
+}
+
+function main() {
+  let x = 100;
+  let y = 50;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = "000";
+  ctx.font = "30px sans-serif";
+  ctx.fillStyle = "white";
+  ctx.fillText("(1) FACIL", canvas.width / 2 - x, canvas.height / 2 - y);
+  ctx.fillText("(2) NORMAL", canvas.width / 2 - x, canvas.height / 2 - y + 30);
+  ctx.fillText("(3) DIFICIL", canvas.width / 2 - x, canvas.height / 2 - y + 60);
+  ctx.fillText(
+    "(4) MUY DIFICIL",
+    canvas.width / 2 - x,
+    canvas.height / 2 - y + 90
+  );
+}
+
+main();
+
+document.addEventListener("keyup", e => {
+  if (!game.gaming) {
+    switch (e.key) {
+      case "1":
+        DIFFICULT_SELECTED = DIFFICULT_GAME.EASY;
+        break;
+      case "2":
+        DIFFICULT_SELECTED = DIFFICULT_GAME.NORMAL;
+        break;
+      case "3":
+        DIFFICULT_SELECTED = DIFFICULT_GAME.HARD;
+        break;
+      case "4":
+        DIFFICULT_SELECTED = DIFFICULT_GAME.VERY_HARD;
+        break;
+    }
+    startGame();
+  }
 });
-
-setInterval(() => {
-  update();
-}, 20);
-
-showLives();
