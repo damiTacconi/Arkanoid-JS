@@ -23,7 +23,7 @@ const DIFFICULT_GAME = {
   },
   VERY_HARD: {
     BAR_WIDTH: 40,
-    MAX_BRICKS_LIVES: 5,
+    MAX_BRICKS_LIVES: 6,
     PLAYER_LIVES: 1
   }
 };
@@ -83,9 +83,9 @@ function reset() {
 
 /* ACTUALIZACION DE PUNTOS */
 function updatePoints() {
-  ctx.clearRect(0, 0, 100, 40);
+  ctx.clearRect(0, 0, 150, 40);
   ctx.fillStyle = "#090909";
-  ctx.fillRect(0, 0, 100, 40);
+  ctx.fillRect(0, 0, 150, 40);
 
   ctx.font = "14px sans-serif";
   ctx.fillStyle = "white";
@@ -137,11 +137,10 @@ function Game() {
   this.drawPowerUps = function() {
     for (let i = 0; i < this.powerUps.length; i++) {
       this.powerUps[i].draw();
-      if (this.powerUps[i].y > canvas.height)
-        this.powerUps = this.powerUps.filter(b => b.x != this.powerUps[i].x);
+      if (this.powerUps[i].y > canvas.height) this.powerUps.splice(i, 1);
       else if (rectCircleColliding(this.powerUps[i], this.bar)) {
         let type = this.powerUps[i].type;
-        this.powerUps = this.powerUps.filter(b => b.x != this.powerUps[i].x);
+        this.powerUps.splice(i, 1);
         if (type === 1) {
           if (this.bar.lives < 15) {
             this.bar.lives += 1;
@@ -163,6 +162,7 @@ function Game() {
       this.bar.bullet.isMoving = false;
       this.bar.bullet.lost = false;
       this.bar.bullet.speed = 4.5;
+      this.bar.bullet.dirY = BulletMovement.UP;
       this.bar.width = DIFFICULT_SELECTED.BAR_WIDTH;
       showLives();
       if (this.bar.lives === 0) {
@@ -233,6 +233,9 @@ function Brick(x, y, lives = 0) {
   };
   this.draw = function() {
     switch (this.lives) {
+      case 6:
+        ctx.fillStyle = "#4f4f4f";
+        break;
       case 5:
         ctx.fillStyle = "#7f03fc";
         break;
